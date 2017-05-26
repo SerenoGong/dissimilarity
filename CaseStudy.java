@@ -28,7 +28,7 @@ public class CaseStudy {
 		for (int i1=0; i1 < S1.length; i1++) {
 			// create directorry
 			String surface_case = S1[i1];
-			new File(working_dir + surface_case).mkdirs();	
+			new File(working_dir + "/" + surface_case).mkdirs();	
 			for (int n1=0; n1 < N.length; n1++) {
 				int n = N[n1];
 				for (int d1=0; d1 < D.length; d1++) {
@@ -206,8 +206,8 @@ public class CaseStudy {
 	
 	public static void main(String[] args) {
 		
-		CaseStudy cs = new CaseStudy("input_data");
-//		cs.generateFiles();
+		CaseStudy cs = new CaseStudy("input_data1");
+		cs.generateFiles();
 		cs.generate_W_Files();
 		cs.generate_Location_Train_Files();
 	}
