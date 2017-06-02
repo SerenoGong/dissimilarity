@@ -3,7 +3,7 @@ import java.util.Random;
 
 import Jama.*;
 
-public class SphereMDS {
+public class HyperbolicMDS {
 	// surface parameters
 	double k; // curvature (0/+/- ==> euclidean/spherical/hyperbolic
 	int m; // m-dimensional Riemannian manifold (subset of R^(m+1)-dimensional space)
@@ -19,7 +19,7 @@ public class SphereMDS {
 	double[][] geodesic_dist; // geodesic distance between X[i] and X[j]
 	
 	
-	SphereMDS(int m1, double k1) {
+	HyperbolicMDS(int m1, double k1) {
 		m = m1-1; // m-dimensional Riemannian manifold (subset of R^(m+1)-dimensional space)
 		k = k1;
 		r = 1/Math.sqrt(Math.abs(k));
@@ -30,26 +30,29 @@ public class SphereMDS {
 		n = F.length;
 	}
 	
-	static private double sphericalAngle(double[] x, double[] y, double k) {
-		// x and y are two vectors (2 points on the sphere centered at origin with radius r)
-		double v = k*MyMatrix.innerProduct(x, y);
-		if (v>1) {
-			// possible  error due to floating number computation
-			System.err.println("warning: geodesic(): " + v + "; v=k*innerProduct(x,y) must be <= 1");
-			return 0;
-		}
-		if (v<-1) {
-			// possible  error due to floating number computation
-			System.err.println("warning: geodesic(): " + v + "; v=k*innerProduct(x,y) must be >= -1");
-			return Math.PI;
-		}
-		return Math.acos(v);
-	}
+
 	
 	static double geodesic(double[] x, double[] y, double k) {
-		// geodesic distance on sphere
+		// geodesic distance in embedding space
+		// non-euclidean
 		
-		return sphericalAngle(x, y, k)/Math.sqrt(k);
+		double inner_product = (k>=0)? x[0]*y[0] : x[0]*y[0]*(-1);
+		for (int i =1; i<x.length; i++) inner_product += x[i]*y[i];
+		
+		double v = k*inner_product;
+		
+		if (k>0) {
+			// v must not exceed 1 for acos() to work
+			// check for possible error
+			if(v>1) {
+				// possible  error due to floating number computation
+				System.err.println("warning: geodesic(): " + v + "; v=k*innerProduct(x,y) must not exceed 1");
+				v=1;
+				return 0;
+			}
+			return Math.acos(v)/Math.sqrt(k);
+		}
+		else return acosh(v)/Math.sqrt(-k);
 	}
 	
 	
@@ -69,8 +72,9 @@ public class SphereMDS {
 		// normalize x such that x is on the manifold
 		// to satisfy the constraint that innerProduct(x,x)=r^2=1/k
 		double[] y = new double[m+1];
-		double a = MyMatrix.norm(x)/r;	
-		for (int coor=0; coor< m+1; coor++) y[coor] = x[coor] / a;
+		double a = innerProduct(x, x);	
+		for (int coor=0; coor< m+1; coor++) 
+			y[coor] = x[coor] / Math.sqrt(k*a);
 		return y;
 	}
 	
@@ -80,49 +84,59 @@ public class SphereMDS {
 		return newX;
 	}
 	
-	static double[][] randomPoint(int n, int d, double radius) {
-		// generate n random positions X on the sphere of radius r in R^d (d dimension)
-		double[][] X = new double[n][d];
-		Random rand = new Random();
-		double[] c = new double[d];
-		for (int i=0; i<n; i++) {
-			double s=0;
-			for (int j=0; j<d; j++) {
-				c[j] = rand.nextGaussian();
-				s += c[j]*c[j];
-			}
-			for (int j=0; j<d; j++) 
-				X[i][j] = radius * c[j]/ Math.sqrt(s);
-		}
-		return X;
-	}
 	double[][] randomPoint(int n) {
-		// generate a random position on the Riemannian sphere of radius r in R^d dimension 
-		return randomPoint(n, m+1, r);
-	}
-	
-	static double[] randomPoint(int d, double radius) {
-		// generate a random position on the Riemannian sphere of radius r in R^d dimension 
-		double[] x = new double[d];
-		Random rand = new Random();
-		double[] c = new double[d];
-		double s=0;
-		for (int j=0; j<d; j++) {
-			c[j] = rand.nextGaussian();
-			s += c[j]*c[j];
+		// generate n random positions X on the m-dim Riemannian surface 
+		int m1 = m+1;
+		double[][] X = new double[n][m1];
+		if (k<0) {
+			// the following will be revised to generate random positions
+			// hyperbolic
+			// TO BE ADDED
 		}
-		for (int j=0; j<d; j++) 
-			x[j] = radius * c[j]/ Math.sqrt(s);
-		return x;
+		else {
+			// spherical
+			Random rand = new Random();
+			double[] c = new double[m1];
+			for (int i=0; i<n; i++) {
+				double s=0;
+				for (int j=0; j<m1; j++) {
+					c[j] = rand.nextGaussian();
+					s += c[j]*c[j];
+				}
+				for (int j=0; j<m1; j++) 
+					X[i][j] = r * c[j]/ Math.sqrt(s);
+			}
+		}
+		
+		return X;
 	}
 	
 	double[] randomPoint() {
-		// generate a random position on the Riemannian sphere of radius r in R^d dimension 
-		return randomPoint(m+1, r);
+		// generate a random position on the m-dim Riemannian surface 
+		int m1 = m+1;
+		double[] x = new double[m1];
+		if (k<0) {
+			// the following will be revised to generate random positions
+			// hyperbolic
+			// TO BE ADDED
+		}
+		else {
+			// spherical
+			Random rand = new Random();
+			double[] c = new double[m1];
+			double s=0;
+			for (int j=0; j<m1; j++) {
+				c[j] = rand.nextGaussian();
+				s += c[j]*c[j];
+			}
+			for (int j=0; j<m1; j++) 
+				x[j] = r * c[j]/ Math.sqrt(s);
+		}
+		
+		return x;
 	}
 	
-	
-	boolean embed() {
+	boolean embedSphere() {
 		// this algorithm works only for a complete matrix F
 		// algorithm is based on EigenDecomposition
 		// compute A = cos(F*sqrt(k))/k
@@ -178,7 +192,13 @@ public class SphereMDS {
 		return true;
 	}
 	
-	
+	private double sphericalAngle(double[] x, double[] y) {
+		// x and y are two vectors (2 points on the sphere centered at origin with radius r)
+		double v = k*innerProduct(x, y);
+		if (v>=1) return 0;
+		if (v<=-1) return Math.PI;
+		return Math.acos(v);
+	}
 	private double[] MapLOG(double[] x, double[] y) {
 		// x and y are two vectors (2 points on the sphere centered at origin)
 		// project y onto the tangent space of point x
@@ -187,26 +207,24 @@ public class SphereMDS {
 		double theta;
 		double costheta;
 		double sintheta;
-		double v = k*MyMatrix.innerProduct(x, y);
-		
+		double v = k*innerProduct(x, y);
 		if (v>=1) {
 			theta= 0; // y and x are extremely close
 			return z;
 		}
 		if (v<=-1) {
-			// this case should not happen; but might happen due to floating number operations
-			// y and x are antipodal on their great circle
-			// the corresponding log-map will be infinite
+			// this case should not happen; y and x are opposite on their great circle
+			theta= Math.PI;
 			return null;
 		}
-		else {
-			theta = Math.acos(v);
-			costheta=v;
-			sintheta = Math.sqrt(1-v*v);
-			for (int i=0; i<y.length; i++)
-				z[i] = theta*(y[i]-x[i]*costheta)/sintheta;
-			return z;
-		}
+
+		theta = Math.acos(v);
+		costheta=v;
+		sintheta = Math.sqrt(1-v*v);
+
+		for (int i=0; i<y.length; i++)
+			z[i] = theta*(y[i]-x[i]*costheta)/sintheta;
+		return z;
 	}
 	
 	private double[] MapEXP(double[] x, double[] z) {
@@ -221,13 +239,12 @@ public class SphereMDS {
 		double costheta, sintheta;
 
 		if (theta<0.01) {
-			// z is VERY close to the origin of the log map
-			// simply return origin 
+			// z is the origin of the log map
 			return Arrays.copyOf(x, x.length);
 		}
 		
 		if (theta > Math.PI) {
-			// this should not happen, but might because of floating number operations
+			// this should not happen
 			System.err.println("MapEXP(): theta=" + theta + " > PI; warning!");
 			theta = Math.PI;
 			costheta=-1;
@@ -245,6 +262,68 @@ public class SphereMDS {
 		return y;
 	}
 	
+	/*
+	double[] multilateration(double[] x_init, double[][] y, double[] distances) {
+		// given points on the sphere of radius, find the point that is a geodesic-distance away for each of those points
+		// algorithm: 
+		// project the points on the tangent space
+		// do multilateration on the tangent space
+		// last, find the point on the manifold corresponding to the multilateration point on the tangent space		
+		
+		// requirement: dimension of y must be (y.length) x (m+1)
+		
+		int m1 = m+1;
+		double[] x = x_init;
+
+		while(true) {
+			double[] ylog_centroid = new double[m1];
+			// project y onto tangent space
+			for (int j=0; j<y.length; j++) {
+				double[] ylog = MapLOG(x, y[j]);					
+				// translate ylog by distances
+				double g = geodesic(x, y[j], k);
+				double scale = 1.0 - distances[j]/g;
+
+				if(Double.isInfinite(scale)) {
+					// when g is TOO SMALL ==> scale TOO BIG
+					// JAVA cannot handle TOO BIG double numbers, hence setting scale= -INFINITE
+					// when g is too small, meaning y[j] is close to origin x
+					
+					scale = -1.0;
+				}
+				for (int i=0; i<m1; i++) {
+					ylog[i] *= scale;
+					ylog_centroid[i] += ylog[i]/(double) y.length;
+				}
+			}
+			
+			// project ylog_centroid to sphere 
+			// if ylog_centroid is too far away from origin on the tangen plane, cannot map back to sphere
+			double length = MyMatrix.norm(ylog_centroid); 
+			if (length > Math.PI*r) {
+				// clip to fit
+				for (int i=0; i<m1; i++) ylog_centroid[i] /= (length/Math.PI/r); 
+				
+			}
+			double[] new_x = MapEXP(x, ylog_centroid);
+			new_x = normalizeFitManifold(new_x);
+			
+			// quit loop if no significant change in x
+			if (Misc.euclideanDist(new_x, x) < 0.0000001) break;
+			else x = new_x;				
+		}
+		
+		// check for possible error due to floating numbers computation
+		if(Double.isNaN(x[0])) {
+			System.err.println("report this error to duc.tran@umb.edu");
+			System.exit(-1);
+		}
+		return x;
+	}
+	
+	*/
+	
+	
 	double[] multilateration(double[] x_init, double[][] y, double[] distances, int num_iterations) {
 		// given points on the sphere of radius, find the point that is a geodesic-distance away for each of those points
 		// algorithm: 
@@ -259,25 +338,17 @@ public class SphereMDS {
 
 		for (int count=0; count < num_iterations; count++) {
 			double[] ylog_centroid = new double[m1];
-			// project each y onto tangent space
-			int good_projection_count=0;
+			// project y onto tangent space
 			for (int j=0; j<y.length; j++) {
 				double[] ylog = MapLOG(x, y[j]);					
-				if (ylog==null) continue; // ignore this y[j]
-				good_projection_count++;
+				
 				
 				// translate ylog by distances
-				double g = MyMatrix.norm(ylog); // which is the same as geodesic(x, y[j], k), but faster
-				
-				if(Double.isNaN(g)) {
-					System.err.println("multilateration(): g=NaN warning, report!");
-					System.exit(-1);
-				}
-				
+				double g = geodesic(x, y[j], k);
 				double scale = 1.0 - distances[j]/g;
 
 				if(Double.isNaN(scale)) {
-					System.err.println("multilateration(): scale=NaN warning, report!");
+					System.err.println("multilateration(): scale=NaN error, report!");
 					System.err.println("g = " + g);
 					System.exit(-1);
 				}
@@ -286,25 +357,23 @@ public class SphereMDS {
 					// when g is TOO SMALL ==> scale TOO BIG
 					// JAVA cannot handle TOO BIG double numbers, hence setting scale= -INFINITE
 					// when g is too small, meaning y[j] is close to origin x
-					// push farther away
-					System.err.println("multilateration(): scale=Infinite warning, report!");
+					
 					scale = -1.0;
 				}
 				for (int i=0; i<m1; i++) {
 					ylog[i] *= scale;
-					ylog_centroid[i] += ylog[i];
+					ylog_centroid[i] += ylog[i]/(double) y.length;
 				}
 			}
-			for (int i=0; i<m1; i++) ylog_centroid[i] /= (double) good_projection_count;
-	
 			
 			// project ylog_centroid to sphere 
-			// if ylog_centroid is too far away from origin on the tangent plane, cannot map back to sphere
+			// if ylog_centroid is too far away from origin on the tangen plane, cannot map back to sphere
 			double length = MyMatrix.norm(ylog_centroid); 
-			if(Double.isNaN(length) || Double.isNaN(ylog_centroid[0])) {
+			if(Double.isNaN(length)) {
 				System.err.println("multilateration(): ylog_centroid=NaN error, report!");				
 				System.exit(-1);
 			}
+
 			if (length > Math.PI*r) {
 				// clip to fit
 				for (int i=0; i<m1; i++) ylog_centroid[i] /= (length/Math.PI/r); 
@@ -319,8 +388,7 @@ public class SphereMDS {
 			
 			// check for possible error due to floating numbers computation
 			if(Double.isNaN(x[0])) {
-				System.err.println("multilateration(): x[0]=NaN error, report!");
-				System.err.println("ylog_centroid[0]=" + ylog_centroid[0]);
+				System.err.println("multilateration(): NaN error, report!");
 				System.exit(-1);
 			}
 		}
@@ -329,16 +397,16 @@ public class SphereMDS {
 		return x;
 	}
 	
-	static SphereMDS bestMDS(double[][] F1, int min_m, int max_m) {
+	static RiemannianMDS bestMDS(double[][] F1, int min_m, int max_m) {
 		// find the best dimension, best curvature
-		SphereMDS best_mds = null;
+		RiemannianMDS best_mds = null;
 		double min = Double.MAX_VALUE;
 		for (int m1=min_m; m1 <= max_m; m1++) {
 			double k1 = 0.1;
 			while(k1 < Math.PI*Math.PI) {
-				SphereMDS mds = new SphereMDS(m1, k1);
+				RiemannianMDS mds = new RiemannianMDS(m1, k1);
 				mds.loadDissimMatrix(F1);
-				if (mds.embed()) {
+				if (mds.embedSphere()) {
 					if (mds.embedding_distortion < min) {
 						min = mds.embedding_distortion;
 						best_mds = mds;

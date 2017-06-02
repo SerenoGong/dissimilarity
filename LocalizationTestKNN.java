@@ -1,22 +1,22 @@
 
+import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.util.ArrayList;
-import java.util.Random;
 
 public class LocalizationTestKNN extends Localization {
 	
 	boolean[][] W; // W[i][j]=true iff the entry dissimilarity F[i][j] is known
 	double knn_graph_location_err; // esimate dissim[i][j] based on length of shortest path between i and j
 	
+	static int min_m;
+	static int max_m;
+	static int num_iterations;
 	
-	LocalizationTestKNN(String location_filename, String dissim_filename, String W_filename, String L_filename) {
+	LocalizationTestKNN(String location_filename, String dissim_filename) {
 		loadLocationMatrix(location_filename);
 		loadDissimilarityMatrix(dissim_filename);	
-		loadMatrixW(W_filename);
-		loadLocationTraining(L_filename);
-		kNN_ShortestPath();
 	}
+	
 	private void loadMatrixW(String filename) {
 		int[][] W1 = MyMatrix.loadFromFile_Int(filename);
 		W = new boolean[n][n];
@@ -25,7 +25,22 @@ public class LocalizationTestKNN extends Localization {
 				W[i][j] = (W1[i][j] == 1)? true: false;
 	}
 	
-	
+	void saveEmbedData(String casefilename) {
+		for (int m=min_m; m <= max_m; m++) {
+			System.out.println("saving files " + casefilename + "_m"+m+".*");
+			SphereMDSPartial s_mds = SphereMDSPartial.bestMDS_IncompleteDissim(F, W, m, m, num_iterations);
+			MyMatrix.saveAs(s_mds.X, casefilename + "_m"+m+"_sMDS.X");
+			MyMatrix.saveAs(s_mds.geodesic_dist, casefilename + "_m"+m+"_sMDS.dist");
+			
+			// euclidean embedding
+			MDS e_mds = new MDS(F);
+			e_mds.setDimension(m);
+			e_mds.embed_IncompleteDissim(W, num_iterations);
+			double[][] dist = e_mds.distance(e_mds.X);
+			MyMatrix.saveAs(e_mds.X, casefilename + "_m"+m+"_MDS.X");
+			MyMatrix.saveAs(dist, casefilename + "_m"+m+"_MDS.dist");
+		}		
+	}
 	
 	void kNN_ShortestPath() {
 		// compare to the method using shortest-path length to estimate unknown dissimilarity
@@ -42,21 +57,9 @@ public class LocalizationTestKNN extends Localization {
 	
 	
 	
-	double kNN_Sphere(SphereMDS mds) {
-		// test kNN localization
-		double[][] dissim = new double[n][n];
-		for (int i=0; i<n; i++)
-			for (int j=0; j<i; j++) {
-				dissim[i][j] = (W[i][j])? F[i][j]:mds.geodesic_dist[i][j];
-				dissim[j][i] = dissim[i][j];
-			}
-		return knnLocalization(dissim);
-	}
 	
-	
-	double kNN_Euclidean(MDS mds) {
+	double knn(double[][] dist) {
 		// test kNN localization
-		double[][] dist = mds.distance(mds.X);
 		double[][] dissim = new double[n][n];
 		for (int i=0; i<n; i++)
 			for (int j=0; j<i; j++) {
@@ -67,35 +70,73 @@ public class LocalizationTestKNN extends Localization {
 		return knnLocalization(dissim);
 	}
 	
-	void test1(String filename) {
-		// for each m, print all results for all values o k
+	double[] errors(double[][] truth, double[][] est, boolean[][] W) {
+		double train_err = 0;
+		double test_err = 0;
+		int train_count=0;
+		int test_count=0;
 		
-		int min_m=2;
-		int max_m=10;
-		int num_iterations = 20;
+		for (int i=0; i<n; i++) {
+			for (int j=0; j<i; j++) {
+				double diff = est[i][j]-truth[i][j];
+				if (W[i][j]) {
+					train_count++;
+					train_err += diff*diff;
+				}
+				else {
+					test_count++;
+					test_err += diff*diff;
+				}
+			}
+		}
+		train_err = Math.sqrt(train_err) / (double) train_count;
+		test_err = Math.sqrt(train_err) / (double) test_count;
+		double[] err= {train_err, test_err};
+		return err;
+	}
 	
-		MDS mds_e = new MDS(F);
-		
+	String bestMDS(String casefilename, String whichMDS) {		
+		double best_train_err = Double.MAX_VALUE;
+		double best_test_err = Double.MAX_VALUE;
+		int best_m = 2;
+			
+		for (int m=min_m; m<=max_m; m++) {
+			double[][] dist=null;
+			if (whichMDS.compareTo("sphere")==0) dist = MyMatrix.loadFromFile(casefilename + "_m"+m+"_sMDS.dist");
+			if (whichMDS.compareTo("euclidean")==0) dist = MyMatrix.loadFromFile(casefilename + "_m"+m+"_MDS.dist");
+			double[] err  = errors(F, dist, W);
+			if (best_train_err < err[0]) {
+				best_train_err = err[0];
+				best_test_err = err[1];
+				best_m = m;
+			}
+		}
+		return best_m + "," + best_train_err + "," + best_test_err;
+	}
+	
+	void testKNN(String casefilename, String result_filename) {		
 		try {
-			PrintWriter pw = new PrintWriter(filename);
-			pw.println("m, best_k, train_err, test_err, knn_err, knn_euclidean, knn_graph");
+			
+			PrintWriter pw = new PrintWriter(result_filename);
+			pw.print("m, train_err, test_err, knn_err, e_train_err, e_test_err, e_knn_err, g_knn_err");
+			
+			
 			for (int m=min_m; m<=max_m; m++) {
-				SphereMDSPartial mds1 = SphereMDSPartial.bestMDS_IncompleteDissim(F, W, m, m, num_iterations);
-				System.out.println("bestMDS_IncompleteDissim() done, best m=" + m + 
-							", best k=" + mds1.k + ", train_err=" + mds1.train_error + ", test_err=" + mds1.test_error);
+				double[][] dist = MyMatrix.loadFromFile(casefilename + "_m"+m+"_sMDS.dist");
+				double[] err  = errors(F, dist, W);
+				double knn_err = knn(dist);
 				
-				double knn_err = kNN_Sphere(mds1);
-				System.out.println("knn_Sphere() done: knn_err=" + knn_err);
+				pw.print(m + ","  + err[0] + "," + err[1] + "," + knn_err);
 				
 				
 				// euclidean MDS error
-				mds_e.setDimension(m);
-				mds_e.embed_IncompleteDissim(W, num_iterations);
-				double knn_err_euclidean = kNN_Euclidean(mds_e);
-				System.out.println("kNN_Euclidean() done: knn_err=" + knn_err_euclidean);
-
-				pw.println(m + "," + mds1.k + "," + mds1.train_error + "," + mds1.test_error + "," 
-							+ knn_err + "," + knn_err_euclidean + "," + knn_graph_location_err);
+				dist = MyMatrix.loadFromFile(casefilename + "_m"+m+"_MDS.dist");
+				err  = errors(F, dist, W);
+				knn_err = knn(dist);
+				pw.print("," + err[0] + "," + err[1] + "," + knn_err);
+				
+				pw.println("," + knn_graph_location_err);
+				
 			}
 			pw.close();
 		}
@@ -104,59 +145,105 @@ public class LocalizationTestKNN extends Localization {
 			System.exit(-1);
 		}
 	}
-		
-		
-	void test2() {
-		
-		int min_m=3;
-		int max_m=4;
-		int num_iterations = 30;
-		
-		
-		System.out.println("Euclidean Embedding: ");
-		MDS mds = new MDS(F);
-		
-		for (int m=min_m; m <= max_m; m++) {
-			mds.setDimension(m);
-			mds.embed_IncompleteDissim(W, num_iterations);		
-			double knn_err_euclidean = kNN_Euclidean(mds);
-			System.out.println("kNN done, m=" + m + ", knn_err=" + knn_err_euclidean);
+	
+	
+	static void runAndSaveEmbedData(String input_dir, String output_dir) {
+		new File(output_dir).mkdirs();
+		for (int n : CaseStudy.NUMPOINTS) {
+			for (int d: CaseStudy.DIMENSION) {
+				for (String surface : CaseStudy.SURFACE) {
+					new File(output_dir + "/" + surface).mkdirs();
+					String location_filename = CaseStudy.filename_location(n, d, surface);
+					for (String distance : CaseStudy.DISTANCE) {
+						if (surface.compareTo("euclidean")==0 && distance.compareTo("geodesic")==0) {
+							// this case does not apply
+							continue;
+						}
+						for (String dissim : CaseStudy.DISSIM) {
+							String dissim_filename = CaseStudy.filename_dissim(n, d, surface, distance, dissim);
+							LocalizationTestKNN test = new LocalizationTestKNN(
+									input_dir + "/" + location_filename, 
+									input_dir + "/" + dissim_filename);
+							for (int pW = 20; pW <=100; pW += 20) {
+								// 20%, 40%, ...of dissim matrix is known
+								test.loadMatrixW(input_dir + "/" + CaseStudy.filename_W(n, pW));
+								test.saveEmbedData(output_dir + "/" +  dissim_filename + "_W" + pW);		
+							}
+						}
+					}			
+				}
+			}
 		}
-		
-		
 	}
+
+	static void reportingKNN(String input_dir, String output_dir) {
+		new File(output_dir).mkdirs();
+		for (int n : CaseStudy.NUMPOINTS) {
+			for (int d: CaseStudy.DIMENSION) {
+				for (String surface : CaseStudy.SURFACE) {
+					new File(output_dir + "/" + surface).mkdirs();
+					String location_filename = CaseStudy.filename_location(n, d, surface);
+					for (String distance : CaseStudy.DISTANCE) {
+						if (surface.compareTo("euclidean")==0 && distance.compareTo("geodesic")==0) {
+							// this case does not apply
+							continue;
+						}
+						for (String dissim : CaseStudy.DISSIM) {
+							
+							
+							String dissim_filename = CaseStudy.filename_dissim(n, d, surface, distance, dissim);
+							LocalizationTestKNN test = new LocalizationTestKNN(
+									input_dir + "/" + location_filename, 
+									input_dir + "/" + dissim_filename);
+							
+							for (int pW = 20; pW <=100; pW += 20) {
+								// 20%, 40%, ... of dissim matrix is known
+								test.loadMatrixW(input_dir + "/" + CaseStudy.filename_W(n, pW));
+							
+								for (int pL = 20; pL <= 100; pL += 20) {
+									// 20%, 40%, ... of points have known locations
+									test.loadLocationTraining(input_dir + "/" + CaseStudy.filename_L(n, pL));
+											
+									test.kNN_ShortestPath();
+									
+									test.testKNN(
+											output_dir + "/" +  dissim_filename + "_W" + pW, 
+											output_dir + "/" +  dissim_filename + "_W" + pW + "_L"+pL+"_knn.csv");			
+								}
+							}
+						}
+					}			
+				}
+			}
+		}
+	}
+	
+	
 	
 	public static void main(String[] args) {
 		
-		// to generate input files, un-comment the 2 lines below
-		//CaseStudy study = new CaseStudy("input_data");
-		//study.generateFiles();
+		// to generate input files, un-comment the lines below
+		// new CaseStudy("input_data").generateAllFiles();
 		
-		//INPUT
-		
-		int n=300; // 300, 500, 1000
-		int d=3; // 3
-		String working_dir = "input_data";
-		String surface = "sphere";
-		String dissim = "geodesic_linear";
-		
-		int known_dissim_prob=20; // 20% of matrix F is known
-		int location_train_prob = 50; // 50% of points have known locations
-		
-		String location_filename = working_dir + "/" + surface  + "/D"+d + "N"+n;
-		String dissim_filename = location_filename + "_" + dissim;
-		String W_filename = working_dir + "/W_N" + n + "p" + known_dissim_prob;
-		String L_filename = working_dir + "/L_N" + n + "p" + location_train_prob;
+		min_m = 2;
+		max_m = 5;
+		num_iterations = 20;
 		
 		
-		System.out.println("location file: " + location_filename);
-		System.out.println("dissim file: " + dissim_filename);
-		System.out.println("W file: " + W_filename);
-		System.out.println("L file: " + L_filename);
+		String input_dir = "input_data";
+		String output_dir = input_dir + "_result_i" + num_iterations;
 		
-		// OUPUT
-		LocalizationTestKNN test = new LocalizationTestKNN(location_filename, dissim_filename, W_filename, L_filename);
-//		test.test1(dissim_filename + "_embed_sphere.csv");
-		test.test2();
+		if (true) {
+			// run embedding and save embedding data into files		
+			runAndSaveEmbedData(input_dir, output_dir);
+		}		
+		else {
+			// reporting results
+			reportingKNN(input_dir, output_dir);
+		}
+		
+		
+		
+	
 	}
 }

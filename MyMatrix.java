@@ -322,12 +322,10 @@ public class MyMatrix {
 	//get product of two vectors
 	public static double innerProduct(double[] vectA, double[] vectB){
 
-		int i;
 		double product = 0;
-		int len;
-		len = vectA.length;
+		int len = vectA.length;
 		
-		for(i=0;i<len;i++)	product += vectA[i] * vectB[i];
+		for(int i=0;i<len;i++)	product += vectA[i] * vectB[i];
 	
 		return product;
 	}

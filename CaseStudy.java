@@ -1,23 +1,18 @@
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.math.BigDecimal;
-import java.util.ArrayList;
 import java.util.Random;
 
 
 public class CaseStudy {
-	String location_filename;
-	String dissim_filename;
-	
 	String working_dir;
 	
-	String[] S1 = {"euclidean", "sphere"};
-	String[] S2 = {"euclidean", "geodesic"};
-	String[] S3 = {"linear", "poly", "log", "exp"};
+	static String[] SURFACE = {"euclidean", "sphere"};
+	static String[] DISTANCE = {"euclidean", "geodesic"};
+	static String[] DISSIM = {"linear", "poly", "log", "exp"};
 	
-	int[] N = {100, 300, 500, 1000};
-	int[] D = {2, 3};
+	static int[] NUMPOINTS = {100, 300, 500};
+	static int[] DIMENSION = {2, 3};
 	
 	CaseStudy(String dir) {
 		working_dir = dir;
@@ -25,17 +20,16 @@ public class CaseStudy {
 	void generateFiles() {
 		new File(working_dir).mkdirs();
 		Random rand = new Random();
-		for (int i1=0; i1 < S1.length; i1++) {
+		for (int i1=0; i1 < SURFACE.length; i1++) {
 			// create directorry
-			String surface_case = S1[i1];
-			new File(working_dir + "/" + surface_case).mkdirs();	
-			for (int n1=0; n1 < N.length; n1++) {
-				int n = N[n1];
-				for (int d1=0; d1 < D.length; d1++) {
-					int d = D[d1];
+			String surface = SURFACE[i1];
+			new File(working_dir + "/" + surface).mkdirs();	
+			for (int n1=0; n1 < NUMPOINTS.length; n1++) {
+				int n = NUMPOINTS[n1];
+				for (int d1=0; d1 < DIMENSION.length; d1++) {
+					int d = DIMENSION[d1];
 					double[][] locations = new double[n][d];
 					
-					location_filename = working_dir + "/" + surface_case + "/D"+d + "N"+n;		
 					switch (i1) {
 					case 0:	
 						// euclidean surface
@@ -50,10 +44,11 @@ public class CaseStudy {
 						locations = mds.randomPoint(n);
 						break;
 					}
-					MyMatrix.saveAs(locations, location_filename);
-					for (int i2=0; i2 < S2.length; i2++) {
-						String distance_case = S2[i2];
-						double[][] dist = new double[n][n];
+					MyMatrix.saveAs(locations, working_dir + "/" + filename_location(n, d, surface));
+					
+					for (int i2=0; i2 < DISTANCE.length; i2++) {
+						String distance = DISTANCE[i2];
+						double[][] dist = null;
 						switch (i2) {
 						case 0:	
 							// euclidean distance
@@ -61,21 +56,18 @@ public class CaseStudy {
 							break;
 						case 1:
 							// geodesic distance (applied only for non-euclidean surface)
-							if (i1 == 0) {
-								// for euclidean surface, geodesic distance = euclidean distance
-								dist = euclideanDissim(locations);
-							}
-							else 
+							if (surface.compareTo("euclidean") != 0) 
 								dist = geodesicDissim(locations);
+							else 
+								dist = null;
 							break;
 						}
 						
-						for (int i3=0; i3 < S3.length; i3++) {
-							String dissim_case = distance_case + "_" + S3[i3];
-							dissim_filename = location_filename + "_" + dissim_case;
-							double[][] F = generateDissim(S3[i3], dist);
-							MyMatrix.saveAs(F, dissim_filename);
-						
+						for (int i3=0; i3 < DISSIM.length; i3++) {
+							if (dist == null) continue;
+							String dissim = DISSIM[i3];
+							double[][] F = generateDissim(DISSIM[i3], dist);
+							MyMatrix.saveAs(F, working_dir + "/" + filename_dissim(n, d, surface, distance, dissim));
 						}
 					}
 				}
@@ -106,14 +98,12 @@ public class CaseStudy {
 	double[][] geodesicDissim(double[][] locations) {
 		// compute geodesic distances between points on a unit sphere
 		int n = locations.length;
-		int d = locations[0].length;
 		double[][] dist = new double[n][n];
 		
 		for (int i=0; i<n; i++) {
 			for (int j=0; j<i; j++) {
 				double[] x = locations[i];
 				double[] y = locations[j];
-				SphereMDS mds = new SphereMDS(d, 1);	
 				dist[i][j] = SphereMDS.geodesic(x, y, 1);
 				dist[j][i] = dist[i][j];
 			}
@@ -153,15 +143,12 @@ public class CaseStudy {
 		return MyMatrix.normalize_01(F);
 	}
 	
-	void setCaseStudy(int n, int d, String surface, String distance, String dissim) {
-		location_filename = working_dir + "/" + surface + "/" + "/D"+d + "N"+n;
-		dissim_filename = location_filename + "_" + distance + "_" + dissim;
-	}
+	
 	
 	
 	void generate_W_Files() {
 		Random rand = new Random();
-		for (int n : N) {
+		for (int n : NUMPOINTS) {
 			for (int p=10; p<=100; p+=10) {
 				int[][] W = new int[n][n];
 				for (int i=0; i<n; i++) 
@@ -170,7 +157,7 @@ public class CaseStudy {
 						W[j][i] = W[i][j];
 					}
 				
-				String filename = working_dir + "/" + "W_N" + n + "p" + p;
+				String filename = working_dir + "/" + filename_W(n, p);
 				MyMatrix.saveAs(W, filename);
 			}
 		}
@@ -179,9 +166,9 @@ public class CaseStudy {
 	
 	void generate_Location_Train_Files() {
 		Random rand = new Random();
-		for (int n : N) {
+		for (int n : NUMPOINTS) {
 			for (int p=10; p<=100; p+=10) {
-				String filename = working_dir + "/" + "L_N" + n + "p" + p;
+				String filename = working_dir + "/" + filename_L(n, p);
 				double location_prob=  (double) p / 100.00;
 				try {
 					PrintWriter pw = new PrintWriter(filename);
@@ -204,12 +191,29 @@ public class CaseStudy {
 		}
 	}
 	
+	static String filename_location(int n, int d, String surface) {
+		return surface + "/D"+d + "N"+n;
+	}
+	static String filename_dissim(int n, int d, String surface, String distance, String dissim) {
+		return filename_location(n,d,surface) + "_" + distance + "_" + dissim;
+	}
+	static String filename_W(int n, int p) {
+		return "W"+p +"N" + n;
+	}
+	static String filename_L(int n, int p) {
+		return "L"+p +"N" + n;
+	}
+	
+	void generateAllFiles() {
+		generateFiles();
+		generate_W_Files();
+		generate_Location_Train_Files();
+	}
+	
 	public static void main(String[] args) {
 		
-		CaseStudy cs = new CaseStudy("input_data1");
-		cs.generateFiles();
-		cs.generate_W_Files();
-		cs.generate_Location_Train_Files();
+		CaseStudy cs = new CaseStudy("input_data");
+		cs.generateAllFiles();
 	}
 
 }

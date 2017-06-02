@@ -77,7 +77,7 @@ public class SphereMDSPartial extends SphereMDS {
 				}
 				if (list.size() ==0) X_new[i] = Arrays.copyOf(X[i], m+1);
 				else {
-					X_new[i] = multilateration(X[i], y, distances, 100); 
+					X_new[i] = multilateration(X[i], y, distances, 100); // should be better than random init point
 					//X_new[i] = multilateration(randomPoint(), y, distances, 100); 
 				}
 			}

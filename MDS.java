@@ -13,7 +13,8 @@ public class MDS {
 	int m; // embedding dimension
 	double[][] X; // image points in the embedding
 
-	double train_error;
+	double train_err;
+	double test_err;
 	
 	MDS(double[][] F1) {
 		F = MyMatrix.copy(F1);
@@ -96,7 +97,7 @@ public class MDS {
 	     
 	    Matrix solutionX = U1.times(E1); // each row of solutionX is position X[i]
 	    X = solutionX.getArray();
-		train_error = MyMatrix.normFrobenius(distance(X), F)/Math.sqrt(n*(n-1));
+		train_err = MyMatrix.normFrobenius(distance(X), F)/Math.sqrt(n*(n-1));
 		return true;
 	}
 	
@@ -157,8 +158,8 @@ public class MDS {
 			MDS mds = new MDS(F1);
 			mds.setDimension(m1);
 			if (mds.embed()) {
-				if (mds.train_error < min) {
-					min = mds.train_error;
+				if (mds.train_err < min) {
+					min = mds.train_err;
 					best_mds = mds;
 				}
 			}
@@ -202,8 +203,8 @@ public class MDS {
 			}
 			X = X_new;
 		}
-		double train_err = 0;
-		double test_err = 0;
+		train_err = 0;
+		test_err = 0;
 		int train_count=0;
 		int test_count=0;
 		for (int i=0; i<n; i++) {
