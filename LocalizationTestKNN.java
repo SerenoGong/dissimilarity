@@ -118,7 +118,7 @@ public class LocalizationTestKNN extends Localization {
 		try {
 			
 			PrintWriter pw = new PrintWriter(result_filename);
-			pw.print("m, train_err, test_err, knn_err, e_train_err, e_test_err, e_knn_err, g_knn_err");
+			pw.println("m, train_err, test_err, knn_err, e_train_err, e_test_err, e_knn_err, g_knn_err");
 			
 			
 			for (int m=min_m; m<=max_m; m++) {
@@ -131,6 +131,13 @@ public class LocalizationTestKNN extends Localization {
 				
 				// euclidean MDS error
 				dist = MyMatrix.loadFromFile(casefilename + "_m"+m+"_MDS.dist");
+				
+				String str = casefilename + "_m"+m+"_MDS.dist";
+				if (str.compareTo("input_data_result_i20/sphere/D3N500_euclidean_exp_W80_m3_MDS.dist")==0) {
+	//				System.out.println(dist.length +"," + dist[0].length);
+	//				System.out.println(F.length +"," + F[0].length);
+	//				System.out.println(MyMatrix.toStr(dist));
+				}
 				err  = errors(F, dist, W);
 				knn_err = knn(dist);
 				pw.print("," + err[0] + "," + err[1] + "," + knn_err);
@@ -159,8 +166,11 @@ public class LocalizationTestKNN extends Localization {
 							// this case does not apply
 							continue;
 						}
+						
 						for (String dissim : CaseStudy.DISSIM) {
 							String dissim_filename = CaseStudy.filename_dissim(n, d, surface, distance, dissim);
+							
+							
 							LocalizationTestKNN test = new LocalizationTestKNN(
 									input_dir + "/" + location_filename, 
 									input_dir + "/" + dissim_filename);
@@ -188,10 +198,11 @@ public class LocalizationTestKNN extends Localization {
 							// this case does not apply
 							continue;
 						}
+						
 						for (String dissim : CaseStudy.DISSIM) {
-							
-							
 							String dissim_filename = CaseStudy.filename_dissim(n, d, surface, distance, dissim);
+							System.out.println("reportingKNN(): dissim_filename=" + dissim_filename);
+							
 							LocalizationTestKNN test = new LocalizationTestKNN(
 									input_dir + "/" + location_filename, 
 									input_dir + "/" + dissim_filename);
@@ -206,9 +217,10 @@ public class LocalizationTestKNN extends Localization {
 											
 									test.kNN_ShortestPath();
 									
+									String WL_filename = dissim_filename + "_W" + pW + "_L"+pL+"_knn.csv";
 									test.testKNN(
 											output_dir + "/" +  dissim_filename + "_W" + pW, 
-											output_dir + "/" +  dissim_filename + "_W" + pW + "_L"+pL+"_knn.csv");			
+											output_dir + "/" +  WL_filename);			
 								}
 							}
 						}
@@ -220,6 +232,99 @@ public class LocalizationTestKNN extends Localization {
 	
 	
 	
+	static String knnErr(String WL_filename) {
+		// return the knn_error of the best embedding
+		double[][] table = MyMatrix.transpose(MyMatrix.loadFromFile(WL_filename, 1));
+		
+		int h = Misc.getKMIN(table[3], 1)[0];
+		int best_m_sphere = (int) table[0][h];
+		double knnErr_best_sphere = table[3][h];
+		
+		h = Misc.getKMIN(table[6], 1)[0];
+		int best_m_euclidean = (int) table[0][h];
+		double knnErr_best_euclidean = table[6][h];
+		
+		double knnErr_g = table[7][0];
+		
+		return best_m_sphere +"," + best_m_euclidean + 
+				"," + knnErr_best_sphere + "," + knnErr_best_euclidean + "," + knnErr_g;
+	}
+	
+	
+	
+	static void reportingKNN_2(String input_dir, String output_dir) {
+		// only report the best embedding for each case
+		for (int n : CaseStudy.NUMPOINTS) {
+			for (int d: CaseStudy.DIMENSION) {
+				for (String surface : CaseStudy.SURFACE) {
+					String location_filename = CaseStudy.filename_location(n, d, surface);
+					
+					String save2File1 = output_dir + "/" +  location_filename+".csv";
+					try {
+						PrintWriter pw1 = new PrintWriter(save2File1);
+						pw1.print("distance,dissim,knn_err_s,knn_err_e,knn_err_g,knn_s_e_ratio");
+				
+						for (String distance : CaseStudy.DISTANCE) {
+							if (surface.compareTo("euclidean")==0 && distance.compareTo("geodesic")==0) {
+								// this case does not apply
+								continue;
+							}
+							for (String dissim : CaseStudy.DISSIM) {
+								String dissim_filename = CaseStudy.filename_dissim(n, d, surface, distance, dissim);
+								System.out.println("reportingKNN_2(): dissim_filename=" + dissim_filename);
+								
+								
+								String save2File2 = output_dir + "/" +  dissim_filename+"_WL.csv";
+								
+								PrintWriter pw2 = new PrintWriter(save2File2);
+								pw2.print("w,l,m_s,m_e,knn_err_s,knn_err_e,knn_err_g,knn_s_e_ratio");
+								
+								double knn_err_s=0;
+								double knn_err_e=0;
+								double knn_err_g=0;
+								int count=0;
+								for (int pW = 20; pW <=100; pW += 20) {
+									// 20%, 40%, ... of dissim matrix is known
+									for (int pL = 20; pL <= 100; pL += 20) {
+										// 20%, 40%, ... of points have known locations
+										if (pL==100) break;
+										String WL_filename = dissim_filename + "_W" + pW + "_L"+pL+"_knn.csv";
+										String str = knnErr(output_dir + "/" +  WL_filename);
+										
+										pw2.println();
+										pw2.print(pW + "," + pL + "," + str+
+												"," + Double.parseDouble(str.split(",")[2])/Double.parseDouble(str.split(",")[3]));
+										
+										knn_err_s += Double.parseDouble(str.split(",")[2]);
+										knn_err_e += Double.parseDouble(str.split(",")[3]);
+										knn_err_g += Double.parseDouble(str.split(",")[4]);
+										count++;
+									}
+								}
+								pw2.close();
+								
+								knn_err_s /= (double) count;
+								knn_err_e /= (double) count;
+								knn_err_g /= (double) count;
+								pw1.println();
+								pw1.print(distance + "," + dissim + 
+										"," + knn_err_s + "," + knn_err_e + "," + knn_err_g +
+										"," + knn_err_s/knn_err_e);
+							}
+						}	
+
+						pw1.close();
+					}
+					
+					catch (IOException e) {
+						System.err.println("reportingKNN_2() file error");
+						System.exit(-1);
+					}
+				}
+			}
+		}
+		
+	}
 	public static void main(String[] args) {
 		
 		// to generate input files, un-comment the lines below
@@ -228,18 +333,20 @@ public class LocalizationTestKNN extends Localization {
 		min_m = 2;
 		max_m = 5;
 		num_iterations = 20;
-		
-		
-		String input_dir = "input_data";
-		String output_dir = input_dir + "_result_i" + num_iterations;
-		
-		if (true) {
+				
+		if (false) {
+			String input_dir = "input_data1";
+			String output_dir = input_dir + "_result_i" + num_iterations;
+			
 			// run embedding and save embedding data into files		
 			runAndSaveEmbedData(input_dir, output_dir);
 		}		
 		else {
-			// reporting results
-			reportingKNN(input_dir, output_dir);
+			String input_dir = "input_data1";
+			String output_dir = input_dir + "_result_i" + num_iterations;
+				// reporting results
+			//reportingKNN(input_dir, output_dir);
+			reportingKNN_2(input_dir, output_dir);
 		}
 		
 		

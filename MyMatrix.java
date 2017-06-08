@@ -238,8 +238,15 @@ public class MyMatrix {
 	}
 	
 	public static double[][] loadFromFile(String filename) {
+		return loadFromFile(filename, 0);
+	}
+	public static double[][] loadFromFile(String filename, int lines2skip) {
+		// skip the first "lines2skip" lines
+		// used when the first lines are comments, not numbers
+		
 		double[][] matrix = null;
 		ArrayList<ArrayList<Double>> F = new ArrayList<ArrayList<Double>>();
+		int firstlines=0;
 		try{
 			DataInputStream in = new DataInputStream(new FileInputStream(filename));
 			BufferedReader br = new BufferedReader(new InputStreamReader(in));
@@ -247,6 +254,10 @@ public class MyMatrix {
 			int rowcount=0;
 			int columncount=0;
 			while((strLine = br.readLine()) != null) {
+				
+				firstlines++;
+				if (firstlines <= lines2skip) continue;
+				
 				String[] s = strLine.split(",");
 				ArrayList<Double> row = new ArrayList<Double>();
 				columncount = s.length;
