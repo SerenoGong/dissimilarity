@@ -11,7 +11,7 @@ public class CaseStudy {
 	static String[] DISTANCE = {"euclidean", "geodesic"};
 	static String[] DISSIM = {"linear", "poly", "log", "exp"};
 	
-	static int[] NUMPOINTS = {100, 300, 500};
+	static int[] NUMPOINTS = {100, 500};
 	static int[] DIMENSION = {2, 3};
 	
 	CaseStudy(String dir) {
@@ -40,7 +40,7 @@ public class CaseStudy {
 						break;
 					case 1:
 						// spherical surface
-						SphereMDS mds = new SphereMDS(d, 1);
+						MDS_Sphere mds = new MDS_Sphere(d, 1);
 						locations = mds.randomPoint(n);
 						break;
 					}
@@ -97,18 +97,8 @@ public class CaseStudy {
 	
 	double[][] geodesicDissim(double[][] locations) {
 		// compute geodesic distances between points on a unit sphere
-		int n = locations.length;
-		double[][] dist = new double[n][n];
-		
-		for (int i=0; i<n; i++) {
-			for (int j=0; j<i; j++) {
-				double[] x = locations[i];
-				double[] y = locations[j];
-				dist[i][j] = SphereMDS.geodesic(x, y, 1);
-				dist[j][i] = dist[i][j];
-			}
-		}
-		return dist;
+		MDS_Sphere mds = new MDS_Sphere(locations[0].length, 1);
+		return mds.geodesic(locations);
 	}
 	
 	

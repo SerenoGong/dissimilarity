@@ -16,19 +16,23 @@ public class MDS {
 	double train_err;
 	double test_err;
 	
+	// variables for convenience
+	Matrix eigenV; // eigenvector matrix
+	Matrix eigenD; // eigenvalue matrix
+	boolean eigen_ready = false;
+	
 	MDS(double[][] F1) {
 		F = MyMatrix.copy(F1);
 		n = F.length;	
+		
+		
 	}
-
-	void setDimension(int m1) {
-		m = m1;
+	void setDimension(int dim) {
+		m = dim;
 	}
 	
-	boolean embed() {
+	void eigenProcessing() {
 		// assuming a complete matrix F
-		
-		
 		// compute D2 = square matrix of F
 		double[][] D2 = new double[n][n];
 		for (int i=0; i< n; i++) {
@@ -56,46 +60,50 @@ public class MDS {
 		mB = mB.times(mC);
 
 		EigenvalueDecomposition e = mB.eig();
-		Matrix U = e.getV();
-		Matrix E = e.getD(); 
+		Matrix V1 = e.getV();
+		Matrix D1 = e.getD(); 
 		
-		//U.print(10, 2);
-		//E.print(10, 2);
-
 		// rearrange eigen matrices in descending order of eigenvalues
-		int[] index_list = EigenValueIndex.sortEigen(E);
+		int[] index_list = EigenValueIndex.sortEigen(D1);
+		eigenD = new Matrix(n, n);
+	    for (int i=0; i<n; i++) 
+	    	 eigenD.set(i, i, D1.get(index_list[i], index_list[i]));
+		
+	    eigenV = new Matrix(n, n);
+	    for (int row=0; row<n; row++) 
+	    	 for (int column=0; column<n; column++) 
+	    		 eigenV.set(row, column, V1.get(row, index_list[column]));
+		
+	    eigen_ready = true;
+	}
+	
+	boolean embed() {
+		// must run eigenProcessing() already
+		if (!eigen_ready) {
+			System.err.println("embed(): eigencomposition must be run first; but it did not");
+			System.exit(-1);
+		}
 		
 		int num_positive_eigen = 0;
 		for(int i=0; i<n; i++) {
-			if (E.get(index_list[i], index_list[i]) > 0) 
-				num_positive_eigen++;
+			if (eigenD.get(i, i) > 0) num_positive_eigen++;
 		}
 		
 		// only extract the part of largest eigenvalues that are positive
 	    if (m > num_positive_eigen) {
-	    	 System.out.println(" m= " + m + " too high; m should be at most  " + num_positive_eigen);
+	    	 System.err.println(" m= " + m + " too high; m should be at most  " + num_positive_eigen);
 	    	 return false; // unsuccessful
 	    }
 	     
 	    // extract the part corresponding to m largest (positive) eigenvalues
-	    Matrix E1 = new Matrix(m, m);
-	    for (int i=0; i<m; i++) 
-	    	 E1.set(i, i, E.get(index_list[i], index_list[i]));
-	     
-	    Matrix U1 = new Matrix(n, m);
-	     for (int row=0; row<n; row++) 
-	    	 for (int column=0; column<m; column++) 
-	    		 U1.set(row, column, U.get(row, index_list[column]));
-	     
-	     
-	    //U1.print(10, 2);
-		//E1.print(10, 2);
-			
+	    Matrix D1 = eigenD.getMatrix(0, m-1, 0, m-1);
+	    Matrix V1 = eigenV.getMatrix(0, n-1, 0, m-1);
+
 	     // compute square root matrix of E1
 	     for (int i=0; i<m; i++)
-	    	 E1.set(i, i, Math.sqrt(E1.get(i, i)));
+	    	 D1.set(i, i, Math.sqrt(D1.get(i, i)));
 	     
-	    Matrix solutionX = U1.times(E1); // each row of solutionX is position X[i]
+	    Matrix solutionX = V1.times(D1); // each row of solutionX is position X[i]
 	    X = solutionX.getArray();
 		train_err = MyMatrix.normFrobenius(distance(X), F)/Math.sqrt(n*(n-1));
 		return true;
