@@ -210,7 +210,7 @@ public class MyMatrix {
 			ps.close();
 		}
 		catch (IOException e) {
-			System.out.println("saveAs() error: " + save_to_file);
+			System.out.println("saveAs() error: " + e.getMessage());
 			System.exit(-1);
 		}
 	}

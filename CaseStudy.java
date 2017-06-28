@@ -133,26 +133,21 @@ public class CaseStudy {
 		return MyMatrix.normalize_01(F);
 	}
 	
-	
-	
-	
 	void generate_W_Files() {
-		Random rand = new Random();
 		for (int n : NUMPOINTS) {
 			for (int p=10; p<=100; p+=10) {
-				int[][] W = new int[n][n];
-				for (int i=0; i<n; i++) 
-					for(int j=0; j<i; j++) {
-						W[i][j] = (rand.nextDouble() < (double)p/100.0)? 1: 0;
-						W[j][i] = W[i][j];
-					}
-				
-				String filename = working_dir + "/" + filename_W(n, p);
-				MyMatrix.saveAs(W, filename);
+				int[][] W = null;
+				while(true) {
+					// will break if W forms a connected graph
+					// else, continue trying to find a good W
+					W = MyMatrix.random_01Matrix(n, (double) p/100.0);
+					if (Misc.isConnectedGraph(W)) break;
+				}
+				String W_filename = working_dir + "/" + filename_W(n, p);
+				MyMatrix.saveAs(W, W_filename);
 			}
 		}
 	}
-	
 	
 	void generate_Location_Train_Files() {
 		Random rand = new Random();
@@ -202,7 +197,7 @@ public class CaseStudy {
 	
 	public static void main(String[] args) {
 		
-		CaseStudy cs = new CaseStudy("input_data");
+		CaseStudy cs = new CaseStudy("input_synthetic");
 		cs.generateAllFiles();
 	}
 

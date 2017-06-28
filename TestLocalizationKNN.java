@@ -23,7 +23,7 @@ public class TestLocalizationKNN extends Localization {
 		W = new boolean[n][n];
 		for (int i=0; i < W1.length; i++)
 			for (int j=0; j<W1[0].length; j++)
-				W[i][j] = (W1[i][j] == 1)? true: false;
+				W[i][j] = (W1[i][j] == 1)? true: false;		
 	}
 	
 	
@@ -32,16 +32,15 @@ public class TestLocalizationKNN extends Localization {
 		double[][] adjacency_matrix = new double[n][n];
 		for (int i=0; i<n; i++)
 			for (int j=0; j<i; j++) {
-				adjacency_matrix[i][j] = (W[i][j])? F[i][j]: 0;
+				adjacency_matrix[i][j] = (W[i][j])? F[i][j]: Double.MAX_VALUE;
 				adjacency_matrix[j][i] = adjacency_matrix[i][j];
 			}
+		
 		FloydWarshall floydwarshall = new FloydWarshall(n);
         floydwarshall.floydwarshall(adjacency_matrix);
         knn_graph_location_err =  knnLocalization(floydwarshall.distancematrix);
         System.out.println("knn_graph_location_err=" + knn_graph_location_err);
 	}
-	
-	
 	
 	
 	double knn(double[][] dist) {
@@ -179,7 +178,7 @@ public class TestLocalizationKNN extends Localization {
 		}		
 	}
 	
-	static void runAndSaveEmbedData(String input_dir, String output_dir) {
+	static private void runAndSaveEmbedData(String input_dir, String output_dir) {
 		new File(output_dir).mkdirs();
 		for (int n : CaseStudy.NUMPOINTS) {
 			for (int d: CaseStudy.DIMENSION) {
@@ -255,7 +254,7 @@ public class TestLocalizationKNN extends Localization {
 	
 	
 	
-	static String knnErr(String WL_filename) {
+	static private String knnErr(String WL_filename) {
 		// return the knn_error of the best embedding
 		double[][] table = MyMatrix.transpose(MyMatrix.loadFromFile(WL_filename, 1));
 		
@@ -349,11 +348,14 @@ public class TestLocalizationKNN extends Localization {
 	}
 	
 
-	public static void main(String[] args) {
+	
+	static void testWithSyntheticData() {
+		String input_dir = "input_synthetic";
+
 		
 		// to generate input files, un-comment the lines below
 		// new CaseStudy("input_data").generateAllFiles();
-		
+				
 		m_min = 2;
 		m_max = 5;
 		
@@ -362,7 +364,6 @@ public class TestLocalizationKNN extends Localization {
 		k_step = 1;
 		
 		num_iterations = 20;
-		String input_dir = "input_data";
 		String output_dir = input_dir + "_result_i" + num_iterations;
 			
 		if (true) {
@@ -374,5 +375,76 @@ public class TestLocalizationKNN extends Localization {
 			reportingKNN(input_dir, output_dir);
 			//reportingKNN_2(input_dir, output_dir);
 		}
+	}
+	
+	 static void testWithWiFiData() {
+				
+		m_min = 2;
+		m_max = 5;
+		
+		k_bound_sphere = Math.PI*Math.PI-0.1; //
+		k_bound_hyper = -10; // -Math.PI*Math.PI;
+		k_step = 1;
+		
+		num_iterations = 20;
+		
+		String input_dir = "input_wifidata";
+		String output_dir = input_dir + "_result_i" + num_iterations;
+		new File(output_dir).mkdirs();
+		
+		String dataset_name = "umbcs.wifi.scaled.txt"; 
+		String dissim_type = "euclidean";
+		
+		String location_filename = dataset_name + "_location";
+		String dissim_filename = dataset_name +"_dissim_"+dissim_type;
+		
+		if (false) {
+			// run embedding and save embedding data into files		
+			TestLocalizationKNN test = new TestLocalizationKNN(
+					input_dir + "/" + location_filename, 
+					input_dir + "/" + dissim_filename);
+			for (int pW = 20; pW <=100; pW += 20) {
+				// 20%, 40%, ...of dissim matrix is known
+				String W_filename = input_dir + "/W" + pW +"N" + test.n; 
+				test.loadMatrixW(W_filename);
+				
+				test.saveEmbedData_Euclidean(output_dir + "/" +  dissim_filename + "_W" + pW);	
+				test.saveEmbedData_Sphere(output_dir + "/" +  dissim_filename + "_W" + pW);	
+				test.saveEmbedData_Hyper(output_dir + "/" +  dissim_filename + "_W" + pW);	
+		
+			}
+		}
+		else {
+			// reporting results
+			TestLocalizationKNN test = new TestLocalizationKNN(
+					input_dir + "/" + location_filename, 
+					input_dir + "/" + dissim_filename);
+			
+			for (int pW = 20; pW <=100; pW += 20) {
+				// 20%, 40%, ... of dissim matrix is known
+				
+				String W_filename = input_dir + "/W" + pW +"N" + test.n; 
+				test.loadMatrixW(W_filename);
+				
+				for (int pL = 20; pL <= 100; pL += 20) {
+					// 20%, 40%, ... of points have known locations
+					String L_filename = input_dir + "/W" + pL +"N" + test.n; 
+					test.loadLocationTraining(L_filename);					
+					
+					test.kNN_ShortestPath();
+					
+					String WL_filename = dissim_filename + "_W" + pW + "_L"+pL+"_knn.csv";
+					System.out.println("saving... " + WL_filename);
+					test.testKNN(
+							output_dir + "/" +  dissim_filename + "_W" + pW, 
+							output_dir + "/" +  WL_filename);			
+				}
+			}
+		}
+	}
+	
+	public static void main(String[] args) {
+		//testWithSyntheticData();
+		testWithWiFiData();
 	}
 }

@@ -103,5 +103,29 @@ public class Misc {
 		return Math.log(x + Math.sqrt(x*x - 1.0));
 	}
 
+	
+	static boolean isConnectedGraph(int[][] adjacency_matrix) {
+		// return TRUE if the graph formed by adjacency_matrix
+		int n = adjacency_matrix.length;
+		boolean[] visited = new boolean[n]; // by default, all FALSE
+		visited[0] = true;
+		
+		int num_visited=1;
+		while(true) {
+			boolean stop_flag = true;
+			for (int i=0; i<n; i++) {
+				if (!visited[i]) continue;
+				for (int j = 0; j < adjacency_matrix[i].length; j++) 
+			        if (adjacency_matrix[i][j]==1 && visited[j] == false) {
+			        	visited[j] =true;
+			        	num_visited++;
+			        	stop_flag = false;
+			        }
+			}
+			if (stop_flag) break;
+		}
+		if (num_visited == n) return true;
+		else return false;
+	}
 }
 
