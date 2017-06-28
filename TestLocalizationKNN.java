@@ -263,13 +263,24 @@ public class TestLocalizationKNN extends Localization {
 		double knnErr_best_sphere = table[3][h];
 		
 		h = Misc.getKMIN(table[6], 1)[0];
+		int best_m_hyper = (int) table[0][h];
+		double knnErr_best_hyper = table[6][h];
+		
+		
+		h = Misc.getKMIN(table[9], 1)[0];
 		int best_m_euclidean = (int) table[0][h];
-		double knnErr_best_euclidean = table[6][h];
+		double knnErr_best_euclidean = table[9][h];
 		
-		double knnErr_g = table[7][0];
+		double knnErr_g = table[10][0];
 		
-		return best_m_sphere +"," + best_m_euclidean + 
-				"," + knnErr_best_sphere + "," + knnErr_best_euclidean + "," + knnErr_g;
+		return 
+				best_m_sphere +"," + 
+				best_m_hyper + ","+
+				best_m_euclidean + "," + 
+				knnErr_best_sphere + "," + 
+				knnErr_best_hyper + "," + 
+				knnErr_best_euclidean + "," + 
+				knnErr_g;
 	}
 	
 	
@@ -299,9 +310,10 @@ public class TestLocalizationKNN extends Localization {
 								String save2File2 = output_dir + "/" +  dissim_filename+"_WL.csv";
 								
 								PrintWriter pw2 = new PrintWriter(save2File2);
-								pw2.print("w,l,m_s,m_e,knn_err_s,knn_err_e,knn_err_g,knn_s_e_ratio");
+								pw2.print("w,l,m_s,m_h,m_e,knn_err_s,knn_err_s,knn_err_e,knn_err_g");
 								
 								double knn_err_s=0;
+								double knn_err_h=0;
 								double knn_err_e=0;
 								double knn_err_g=0;
 								int count=0;
@@ -314,24 +326,24 @@ public class TestLocalizationKNN extends Localization {
 										String str = knnErr(output_dir + "/" +  WL_filename);
 										
 										pw2.println();
-										pw2.print(pW + "," + pL + "," + str+
-												"," + Double.parseDouble(str.split(",")[2])/Double.parseDouble(str.split(",")[3]));
-										
-										knn_err_s += Double.parseDouble(str.split(",")[2]);
-										knn_err_e += Double.parseDouble(str.split(",")[3]);
-										knn_err_g += Double.parseDouble(str.split(",")[4]);
+										pw2.print(pW + "," + pL + "," + str);
+
+										knn_err_s += Double.parseDouble(str.split(",")[3]);
+										knn_err_h += Double.parseDouble(str.split(",")[4]);
+										knn_err_e += Double.parseDouble(str.split(",")[5]);
+										knn_err_g += Double.parseDouble(str.split(",")[6]);
 										count++;
 									}
 								}
 								pw2.close();
 								
 								knn_err_s /= (double) count;
+								knn_err_h /= (double) count;
 								knn_err_e /= (double) count;
 								knn_err_g /= (double) count;
 								pw1.println();
 								pw1.print(distance + "," + dissim + 
-										"," + knn_err_s + "," + knn_err_e + "," + knn_err_g +
-										"," + knn_err_s/knn_err_e);
+										"," + knn_err_s + "," + knn_err_h + "," + knn_err_e + "," + knn_err_g);
 							}
 						}	
 
@@ -415,7 +427,7 @@ public class TestLocalizationKNN extends Localization {
 			}
 		}
 		else {
-			// reporting results
+			// reporting summary result for each combination of pW, pL and save it in a separate file
 			TestLocalizationKNN test = new TestLocalizationKNN(
 					input_dir + "/" + location_filename, 
 					input_dir + "/" + dissim_filename);
@@ -440,6 +452,35 @@ public class TestLocalizationKNN extends Localization {
 							output_dir + "/" +  WL_filename);			
 				}
 			}
+			
+			
+			//reporting summary results all in one single file. For each WL, choose the best result
+			// for each technique and compare
+		
+			try {
+				String save2File2 = output_dir + "/" +  dissim_filename+"_WL.csv";
+				PrintWriter pw2 = new PrintWriter(save2File2);
+				pw2.print("w,l,m_s,m_h,m_e,knn_err_s,knn_err_h,knn_err_e,knn_err_g");
+				
+				for (int pW = 20; pW <=100; pW += 20) {
+					// 20%, 40%, ... of dissim matrix is known
+					for (int pL = 20; pL < 100; pL += 20) {
+						// 20%, 40%, ... of points have known locations
+						String WL_filename = dissim_filename + "_W" + pW + "_L"+pL+"_knn.csv";
+						String str = knnErr(output_dir + "/" +  WL_filename);
+						
+						pw2.println();
+						pw2.print(pW + "," + pL + "," + str);
+					}
+				}
+				pw2.close();				
+			}
+			catch (IOException e) {
+				System.err.println("testWithWiFiData(): " + e.getMessage());
+				System.exit(-1);
+			}
+
+			
 		}
 	}
 	
